@@ -1,11 +1,13 @@
 from __future__ import annotations
 
 import datetime as dt
+from typing import Optional
 
 from . import autostart, logging_store
 from .config import AppConfig, load_config, save_config
 from .models import Host
-from .monitor import STATUS_DOWN, STATUS_RECOVERED, STATUS_WARN, HostMonitor
+from .monitor import STATUS_DOWN, STATUS_RECOVERED, STATUS_WARN
+from .monitor_group import MonitorGroup
 from .tray import TrayController
 from .ui.app import SystemMonApp
 from .ui.settings_page import SettingsWindow
@@ -21,31 +23,17 @@ def main() -> None:
     if autostart.is_supported():
         autostart.set_autostart(config.settings.autostart)
 
-    monitors: dict[str, HostMonitor] = {}
-
-    def worst_status() -> str:
-        statuses = [m.state.last_status for m in monitors.values()]
-        if any(s == STATUS_DOWN for s in statuses):
-            return "down"
-        if any(s == STATUS_WARN for s in statuses):
-            return "warn"
-        return "ok"
-
     def on_transition(host: Host, status: str, detail: str) -> None:
         logging_store.append_event(host.name, status, detail)
         app.after(0, app.update_host_status, host.name, status, detail)
-        tray.set_status(worst_status())
+        tray.set_status(monitors.worst_status())
         if status in (STATUS_DOWN, STATUS_WARN, STATUS_RECOVERED):
             tray.notify(f"{host.name}: {status}", detail)
 
-    def rebuild_monitors(new_config: AppConfig) -> None:
-        for m in monitors.values():
-            m.stop()
-        monitors.clear()
-        for host in new_config.hosts:
-            monitors[host.name] = HostMonitor(host, new_config.settings, on_transition)
-        for m in monitors.values():
-            m.start()
+    def on_tick(host: Host, latency_ms: Optional[float], loss_pct: float) -> None:
+        app.after(0, app.update_host_metrics, host.name, latency_ms, loss_pct)
+
+    monitors = MonitorGroup(on_transition=on_transition, on_tick=on_tick)
 
     def apply_new_config(new_config: AppConfig) -> None:
         nonlocal config
@@ -54,7 +42,7 @@ def main() -> None:
         logging_store.prune_old_logs(config.settings.retention_days)
         if autostart.is_supported():
             autostart.set_autostart(config.settings.autostart)
-        rebuild_monitors(config)
+        monitors.rebuild(config)
         app.set_hosts(config.hosts)
 
     def open_settings() -> None:
@@ -77,19 +65,17 @@ def main() -> None:
         app.lift()
 
     def on_toggle_pause() -> None:
-        for m in monitors.values():
-            m.resume() if m.is_paused() else m.pause()
+        tray.set_paused(monitors.toggle_pause())
 
     def on_quit() -> None:
-        for m in monitors.values():
-            m.stop()
+        monitors.stop_all()
         tray.stop()
         app.destroy()
 
     tray = TrayController(on_show, on_toggle_pause, on_quit)
     app.protocol("WM_DELETE_WINDOW", app.withdraw)
 
-    rebuild_monitors(config)
+    monitors.rebuild(config)
 
     tray.run_detached()
     app.mainloop()

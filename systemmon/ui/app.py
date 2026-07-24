@@ -16,16 +16,27 @@ _STATUS_COLORS = {
     "RECOVERED": "#2ea043",
 }
 
-_SELECTED_ROW_COLOR = "#2b2b40"
-_UNSELECTED_ROW_COLOR = "transparent"
+# Row background reflects the host's current status; OK/RECOVERED get no
+# tint so only anomalies stand out. Selection is shown via border color
+# instead of swapping fg_color, so the two states don't collide. "OK" uses
+# CTkFrame's own default theme color rather than "transparent" — border_color
+# doesn't accept "transparent", and this way the same value works for both.
+_ROW_DEFAULT_COLOR = ("gray86", "gray17")
+_STATUS_ROW_COLORS = {
+    "OK": _ROW_DEFAULT_COLOR,
+    "WARN": "#3a2f0a",
+    "DOWN": "#3a1414",
+    "RECOVERED": _ROW_DEFAULT_COLOR,
+}
+_SELECTED_BORDER_COLOR = "#3b82f6"
 
 # Fixed pixel widths shared by the header and every row frame. Proportional
 # (weight-based) columns don't work here because the header and rows live in
 # different container widgets — a plain frame vs. CTkScrollableFrame's inner
 # frame, which is narrower by its scrollbar's width — so equal-weight columns
 # in each would resolve to different pixel widths and drift out of alignment.
-_COLUMNS = ["Name", "Address", "Status", "Latency", "Detail"]
-_COLUMN_WIDTHS = [140, 140, 80, 90, 220]
+_COLUMNS = ["Name", "Address", "Status", "Latency", "Loss%", "Detail"]
+_COLUMN_WIDTHS = [140, 140, 80, 90, 70, 180]
 _CELL_PADX = 8
 # Each cell's text must be truncated to fit, or a long value (e.g. a hostname)
 # grows just that row's column — every other row and the header keep their
@@ -54,7 +65,7 @@ class SystemMonApp(ctk.CTk):
     ):
         super().__init__()
         self.title("SystemMon")
-        self.geometry("780x640")
+        self.geometry("840x640")
 
         self._rows: dict[str, dict] = {}
         self._history_provider = history_provider
@@ -114,7 +125,7 @@ class SystemMonApp(ctk.CTk):
 
     def _add_row(self, host: Host) -> None:
         row_index = len(self._rows)
-        row_frame = ctk.CTkFrame(self._table, fg_color=_UNSELECTED_ROW_COLOR)
+        row_frame = ctk.CTkFrame(self._table, corner_radius=0, border_width=2)
         row_frame.grid(row=row_index, column=0, columnspan=len(_COLUMNS), sticky="ew", pady=1)
         for i in range(len(_COLUMNS)):
             row_frame.grid_columnconfigure(i, minsize=_COLUMN_WIDTHS[i], weight=0)
@@ -125,9 +136,10 @@ class SystemMonApp(ctk.CTk):
         )
         status_label = ctk.CTkLabel(row_frame, text="...", anchor="w", width=_CELL_WIDTH[2])
         latency_label = ctk.CTkLabel(row_frame, text="-", anchor="w", width=_CELL_WIDTH[3])
-        detail_label = ctk.CTkLabel(row_frame, text="", anchor="w", width=_CELL_WIDTH[4])
+        loss_label = ctk.CTkLabel(row_frame, text="-", anchor="w", width=_CELL_WIDTH[4])
+        detail_label = ctk.CTkLabel(row_frame, text="", anchor="w", width=_CELL_WIDTH[5])
 
-        widgets = [name_label, address_label, status_label, latency_label, detail_label]
+        widgets = [name_label, address_label, status_label, latency_label, loss_label, detail_label]
         for i, widget in enumerate(widgets):
             widget.grid(row=0, column=i, sticky="w", padx=_CELL_PADX, pady=4)
 
@@ -138,18 +150,27 @@ class SystemMonApp(ctk.CTk):
             "frame": row_frame,
             "status": status_label,
             "latency": latency_label,
+            "loss": loss_label,
             "detail": detail_label,
+            "status_value": "OK",
         }
+        self._style_row(host.name)
 
-        if self._selected_host == host.name:
-            row_frame.configure(fg_color=_SELECTED_ROW_COLOR)
+    def _style_row(self, host_name: str) -> None:
+        row = self._rows.get(host_name)
+        if not row:
+            return
+        fg = _STATUS_ROW_COLORS.get(row["status_value"], _STATUS_ROW_COLORS["OK"])
+        is_selected = host_name == self._selected_host
+        row["frame"].configure(fg_color=fg, border_color=_SELECTED_BORDER_COLOR if is_selected else fg)
 
     def select_host(self, host_name: str) -> None:
-        if self._selected_host and self._selected_host in self._rows:
-            self._rows[self._selected_host]["frame"].configure(fg_color=_UNSELECTED_ROW_COLOR)
+        previous = self._selected_host
         self._selected_host = host_name
+        if previous and previous in self._rows:
+            self._style_row(previous)
         if host_name in self._rows:
-            self._rows[host_name]["frame"].configure(fg_color=_SELECTED_ROW_COLOR)
+            self._style_row(host_name)
         self._update_graph_visibility()
         self._refresh_graph()
 
@@ -165,9 +186,19 @@ class SystemMonApp(ctk.CTk):
         row = self._rows.get(host_name)
         if not row:
             return
+        row["status_value"] = status
         color = _STATUS_COLORS.get(status, "#999999")
         row["status"].configure(text=self._fit_text(status, 2), text_color=color)
-        row["detail"].configure(text=self._fit_text(detail, 4))
+        row["detail"].configure(text=self._fit_text(detail, 5))
+        self._style_row(host_name)
+
+    def update_host_metrics(self, host_name: str, latency_ms: Optional[float], loss_pct: float) -> None:
+        """Called via `after(0, ...)` on every ping (not just status transitions)."""
+        row = self._rows.get(host_name)
+        if not row:
+            return
+        row["latency"].configure(text="timeout" if latency_ms is None else f"{latency_ms:.0f} ms")
+        row["loss"].configure(text=f"{loss_pct:.0f}%")
 
     def _refresh_graph(self) -> None:
         if not self._selected_host or not self._history_provider:

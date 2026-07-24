@@ -55,6 +55,10 @@ class TrayController:
     def set_status(self, status: str) -> None:
         self._icon.icon = _make_icon_image(_COLORS.get(status.lower(), _COLORS["ok"]))
 
+    def set_paused(self, paused: bool) -> None:
+        """Mirrors the real pause state (owned by MonitorGroup) into the checkbox."""
+        self._paused = paused
+
     def notify(self, title: str, message: str) -> None:
         self._icon.notify(message, title)
 
@@ -65,7 +69,6 @@ class TrayController:
         self._on_show()
 
     def _toggle_pause(self, icon, item) -> None:
-        self._paused = not self._paused
         self._on_toggle_pause()
 
     def _quit(self, icon, item) -> None:

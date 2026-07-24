@@ -33,10 +33,12 @@ class HostMonitor:
         host: Host,
         settings: GlobalSettings,
         on_transition: Callable[[Host, str, str], None],
+        on_tick: Optional[Callable[[Host, Optional[float], float], None]] = None,
     ):
         self.host = host
         self.settings = settings
         self.on_transition = on_transition
+        self.on_tick = on_tick
         self.state = HostState()
         self._stop_event = threading.Event()
         self._pause_event = threading.Event()
@@ -73,8 +75,12 @@ class HostMonitor:
         self.state.last_latency_ms = latency_ms
         self.state.consecutive_misses = 0 if success else self.state.consecutive_misses + 1
 
-        status = self._evaluate_status()
+        loss_pct = self._rolling_loss_pct()
+        status = self._evaluate_status(loss_pct)
         logging_store.append_raw_ping(self.host.name, status, latency_ms)
+
+        if self.on_tick:
+            self.on_tick(self.host, latency_ms, loss_pct)
 
         if status != self.state.last_status:
             detail = f"latency={latency_ms:.1f}ms" if latency_ms is not None else "timeout"
@@ -86,20 +92,23 @@ class HostMonitor:
             return tcp_check(self.host.address, self.host.port or 0)
         return ping_icmp(self.host.address)
 
-    def _evaluate_status(self) -> str:
-        miss_threshold = self.host.consecutive_miss_threshold or self.settings.default_consecutive_miss_threshold
+    def _rolling_loss_pct(self) -> float:
         window = self.host.rolling_loss_window or self.settings.default_rolling_loss_window
+        recent = list(self.state.recent_results)[-window:]
+        if not recent:
+            return 0.0
+        return 100 * (1 - sum(recent) / len(recent))
+
+    def _evaluate_status(self, loss_pct: float) -> str:
+        miss_threshold = self.host.consecutive_miss_threshold or self.settings.default_consecutive_miss_threshold
         loss_pct_threshold = self.host.rolling_loss_pct or self.settings.default_rolling_loss_pct
         latency_threshold = self.host.latency_warning_ms or self.settings.default_latency_warning_ms
 
         if self.state.consecutive_misses >= miss_threshold:
             return STATUS_DOWN
 
-        recent = list(self.state.recent_results)[-window:]
-        if recent:
-            loss_pct = 100 * (1 - sum(recent) / len(recent))
-            if loss_pct >= loss_pct_threshold:
-                return STATUS_DOWN
+        if loss_pct >= loss_pct_threshold:
+            return STATUS_DOWN
 
         if self.state.last_latency_ms is not None and self.state.last_latency_ms >= latency_threshold:
             return STATUS_WARN
