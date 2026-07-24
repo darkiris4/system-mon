@@ -6,8 +6,9 @@ from pathlib import Path
 from typing import List
 
 from .models import GlobalSettings, Host
+from .paths import app_dir
 
-DEFAULT_CONFIG_PATH = Path("config.json")
+DEFAULT_CONFIG_PATH = app_dir() / "config.json"
 
 
 @dataclass

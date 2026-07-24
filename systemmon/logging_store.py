@@ -5,7 +5,9 @@ import datetime as dt
 from pathlib import Path
 from typing import List, Optional, Tuple
 
-LOGS_DIR = Path("logs")
+from .paths import app_dir
+
+LOGS_DIR = app_dir() / "logs"
 
 # (timestamp, latency_ms or None on timeout, status)
 RawPoint = Tuple[dt.datetime, Optional[float], str]
