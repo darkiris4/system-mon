@@ -33,7 +33,7 @@ class HostMonitor:
         host: Host,
         settings: GlobalSettings,
         on_transition: Callable[[Host, str, str], None],
-        on_tick: Optional[Callable[[Host, Optional[float], float], None]] = None,
+        on_tick: Optional[Callable[[Host, Optional[float], float, str], None]] = None,
     ):
         self.host = host
         self.settings = settings
@@ -80,7 +80,7 @@ class HostMonitor:
         logging_store.append_raw_ping(self.host.name, status, latency_ms)
 
         if self.on_tick:
-            self.on_tick(self.host, latency_ms, loss_pct)
+            self.on_tick(self.host, latency_ms, loss_pct, status)
 
         if status != self.state.last_status:
             detail = f"latency={latency_ms:.1f}ms" if latency_ms is not None else "timeout"
