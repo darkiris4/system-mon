@@ -5,6 +5,7 @@ from typing import Callable, Iterable, List, Optional, Tuple
 
 import customtkinter as ctk
 
+from .. import __version__
 from ..logging_store import RawPoint
 from ..models import Host
 from .graph import LatencyGraph
@@ -75,7 +76,7 @@ class SystemMonApp(ctk.CTk):
         initial_paused: bool = False,
     ):
         super().__init__()
-        self.title("SystemMon")
+        self.title(f"SystemMon v{__version__}")
 
         self._rows: dict[str, dict] = {}
         self._history_provider = history_provider
