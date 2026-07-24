@@ -19,7 +19,7 @@ _BG_COLOR = "#1e1e1e"
 _PAD_LEFT, _PAD_RIGHT, _PAD_TOP, _PAD_BOTTOM = 44, 10, 10, 20
 _LOSS_BUCKET_COUNT = 60
 
-_TIME_SCALES = {"10 min": 600, "1 hr": 3600, "8 hr": 8 * 3600}
+_TIME_SCALES = {"10m": 600, "1h": 3600, "8h": 8 * 3600}
 
 
 class LatencyGraph(ctk.CTkFrame):
@@ -39,20 +39,23 @@ class LatencyGraph(ctk.CTkFrame):
         header.pack(fill="x", padx=8, pady=(4, 0))
 
         self._title_label = ctk.CTkLabel(header, text="", anchor="w")
-        self._title_label.pack(side="left")
+        self._title_label.pack(fill="x", padx=8, pady=(0, 4))
 
+        # Controls get their own row below the title rather than sharing one
+        # row — title + both toggles together need more width than this
+        # panel's host window (a narrow, tucked-on-the-side strip) has.
         controls = ctk.CTkFrame(header, fg_color="transparent")
-        controls.pack(side="right")
+        controls.pack(fill="x", padx=8)
 
         self._mode_var = ctk.StringVar(value="Latency")
         ctk.CTkSegmentedButton(
             controls,
-            values=["Latency", "Packet Loss"],
+            values=["Latency", "Loss"],
             variable=self._mode_var,
             command=self._handle_mode_change,
         ).pack(side="left", padx=(0, 8))
 
-        self._time_scale_var = ctk.StringVar(value="1 hr")
+        self._time_scale_var = ctk.StringVar(value="1h")
         ctk.CTkSegmentedButton(
             controls,
             values=list(_TIME_SCALES.keys()),
@@ -104,7 +107,7 @@ class LatencyGraph(ctk.CTkFrame):
         self._canvas.delete("all")
 
     def _update_title(self) -> None:
-        metric = "packet loss" if self._mode_var.get() == "Packet Loss" else "latency"
+        metric = "packet loss" if self._mode_var.get() == "Loss" else "latency"
         self._title_label.configure(
             text=f"{self._host_name} — {metric} (last {self._time_scale_var.get()})"
         )
@@ -131,7 +134,7 @@ class LatencyGraph(ctk.CTkFrame):
 
         points = [p for p in self._points if since <= p[0] <= now]
 
-        if self._mode_var.get() == "Packet Loss":
+        if self._mode_var.get() == "Loss":
             self._draw_loss(canvas, points, since, now, plot_w, plot_h, x_for)
         else:
             self._draw_latency(canvas, points, plot_w, plot_h, x_for)

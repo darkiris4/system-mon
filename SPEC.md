@@ -11,9 +11,10 @@ A lightweight, portable Windows desktop app (Python) that continuously monitors 
 - Monitoring runs continuously in the background, including when the main window is minimized to the system tray.
 
 ### 2. Main Window — Status View
-- **Table/list view**: one row per host — name, address, current latency, status (up/down/warning), consecutive misses, packet loss %.
-- Clicking a host row shows its **latency history graph** below the table, built from logged data (last hour by default) — a plain Canvas line chart, not an embedded charting library, to keep the bundle small. Timeouts render as a red tick at the bottom axis; a dashed line marks the host's latency warning threshold.
-- Row color coding reflects state: OK / latency-warning / down.
+- **Compact by design**: the window opens small — just a narrow host list plus a Pause/Resume and Settings button — so it can sit tucked on the side of the screen as a persistent status strip, not a full dashboard.
+- **Table/list view**: one row per host — name, status, current latency, rolling packet-loss %. Address and any transition detail are intentionally left out of this compact table (see below) to keep rows narrow.
+- Clicking a host row grows the window to reveal that host's **latency/packet-loss history graph**, plus a small line showing its address and last transition detail (e.g. `192.168.1.1 · latency=250ms`). Deselecting shrinks the window back down. The graph itself is a plain Canvas line/loss chart (not an embedded charting library, to keep the bundle small), toggleable between Latency and Loss% modes and 10m/1h/8h time scales; timeouts render as a red tick at the bottom axis, and a dashed line marks the host's warning threshold.
+- Row color coding reflects state: default color for OK/RECOVERED, amber tint for WARN, red tint for DOWN. Selecting a row is shown via a border highlight instead, so selection and status color never collide.
 
 ### 3. Settings Page
 Per-host configuration:
@@ -43,6 +44,7 @@ On threshold breach (latency or missed-ping):
 - Tray icon reflects overall status (e.g. green = all hosts OK, red = at least one host down/breached).
 - Tray context menu: Show window, Pause/Resume monitoring, Quit.
 - Explicit "Quit" fully stops the background process.
+- **Pause/Resume is global only** (all hosts at once), not per-host. It's also exposed as a visible button directly in the main window, not just the tray menu, since the tray right-click menu alone wasn't discoverable enough. Both surfaces stay in sync — whichever one is used to toggle, the other reflects the new state.
 
 ### 6. History & Logging
 - **Raw ping data**: logged per host, per day as CSV files (e.g. `logs/<host>/2026-07-24.csv`), one row per ping. Status leads each row for easy grepping: `status,timestamp,latency`. Used to drive the latency history graph (plus optionally an in-memory buffer for the most recent points to avoid disk churn on every ping).
@@ -61,8 +63,6 @@ On threshold breach (latency or missed-ping):
 - **Notifications**: Windows toast via a lightweight tray/notification library compatible with the packaged exe.
 
 ## Open Items to Decide During Build
-- Exact default values for global thresholds and retention period.
-- Whether "Pause/Resume monitoring" is needed globally, per-host, or both.
 - Icon/branding assets for the tray icon and app window.
 
 ## Out of Scope (v1)

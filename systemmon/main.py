@@ -58,14 +58,19 @@ def main() -> None:
         points = logging_store.read_recent_raw(host_name, since=since)
         return points, warning_ms, loss_pct_threshold
 
-    app = SystemMonApp(config.hosts, on_open_settings=open_settings, history_provider=get_history)
+    def on_toggle_pause() -> bool:
+        paused = monitors.toggle_pause()
+        tray.set_paused(paused)
+        app.set_paused_label(paused)
+        return paused
+
+    app = SystemMonApp(
+        config.hosts, on_open_settings=open_settings, on_toggle_pause=on_toggle_pause, history_provider=get_history
+    )
 
     def on_show() -> None:
         app.deiconify()
         app.lift()
-
-    def on_toggle_pause() -> None:
-        tray.set_paused(monitors.toggle_pause())
 
     def on_quit() -> None:
         monitors.stop_all()
