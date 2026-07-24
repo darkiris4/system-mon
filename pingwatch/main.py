@@ -1,11 +1,12 @@
 from __future__ import annotations
 
-from . import logging_store
-from .config import load_config, save_config
+from . import autostart, logging_store
+from .config import AppConfig, load_config, save_config
 from .models import Host
 from .monitor import STATUS_DOWN, STATUS_RECOVERED, STATUS_WARN, HostMonitor
 from .tray import TrayController
 from .ui.app import PingWatchApp
+from .ui.settings_page import SettingsWindow
 
 
 def main() -> None:
@@ -15,8 +16,8 @@ def main() -> None:
         save_config(config)
 
     logging_store.prune_old_logs(config.settings.retention_days)
-
-    app = PingWatchApp(config.hosts)
+    if autostart.is_supported():
+        autostart.set_autostart(config.settings.autostart)
 
     monitors: dict[str, HostMonitor] = {}
 
@@ -35,9 +36,29 @@ def main() -> None:
         if status in (STATUS_DOWN, STATUS_WARN, STATUS_RECOVERED):
             tray.notify(f"{host.name}: {status}", detail)
 
-    monitors.update(
-        {host.name: HostMonitor(host, config.settings, on_transition) for host in config.hosts}
-    )
+    def rebuild_monitors(new_config: AppConfig) -> None:
+        for m in monitors.values():
+            m.stop()
+        monitors.clear()
+        for host in new_config.hosts:
+            monitors[host.name] = HostMonitor(host, new_config.settings, on_transition)
+        for m in monitors.values():
+            m.start()
+
+    def apply_new_config(new_config: AppConfig) -> None:
+        nonlocal config
+        config = new_config
+        save_config(config)
+        logging_store.prune_old_logs(config.settings.retention_days)
+        if autostart.is_supported():
+            autostart.set_autostart(config.settings.autostart)
+        rebuild_monitors(config)
+        app.set_hosts(config.hosts)
+
+    def open_settings() -> None:
+        SettingsWindow(app, config, on_save=apply_new_config)
+
+    app = PingWatchApp(config.hosts, on_open_settings=open_settings)
 
     def on_show() -> None:
         app.deiconify()
@@ -56,8 +77,7 @@ def main() -> None:
     tray = TrayController(on_show, on_toggle_pause, on_quit)
     app.protocol("WM_DELETE_WINDOW", app.withdraw)
 
-    for m in monitors.values():
-        m.start()
+    rebuild_monitors(config)
 
     tray.run_detached()
     app.mainloop()

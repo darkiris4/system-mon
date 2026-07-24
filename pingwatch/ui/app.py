@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Iterable
+from typing import Callable, Iterable
 
 import customtkinter as ctk
 
@@ -22,12 +22,16 @@ class PingWatchApp(ctk.CTk):
     updates coming from the background monitor threads.
     """
 
-    def __init__(self, hosts: Iterable[Host]):
+    def __init__(self, hosts: Iterable[Host], on_open_settings: Callable[[], None]):
         super().__init__()
         self.title("PingWatch")
         self.geometry("760x420")
 
         self._rows: dict[str, dict[str, ctk.CTkLabel]] = {}
+
+        toolbar = ctk.CTkFrame(self, fg_color="transparent")
+        toolbar.pack(fill="x", padx=8, pady=(8, 0))
+        ctk.CTkButton(toolbar, text="Settings", width=90, command=on_open_settings).pack(side="right")
 
         header = ctk.CTkFrame(self)
         header.pack(fill="x", padx=8, pady=(8, 0))
@@ -39,6 +43,13 @@ class PingWatchApp(ctk.CTk):
         self._table = ctk.CTkScrollableFrame(self)
         self._table.pack(fill="both", expand=True, padx=8, pady=8)
 
+        self.set_hosts(hosts)
+
+    def set_hosts(self, hosts: Iterable[Host]) -> None:
+        """Rebuilds the table from scratch — used on startup and after Settings is saved."""
+        for widget in self._table.winfo_children():
+            widget.destroy()
+        self._rows.clear()
         for host in hosts:
             self._add_row(host)
 
