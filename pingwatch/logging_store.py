@@ -3,9 +3,12 @@ from __future__ import annotations
 import csv
 import datetime as dt
 from pathlib import Path
-from typing import Optional
+from typing import List, Optional, Tuple
 
 LOGS_DIR = Path("logs")
+
+# (timestamp, latency_ms or None on timeout, status)
+RawPoint = Tuple[dt.datetime, Optional[float], str]
 
 
 def _raw_log_path(host_name: str, date: dt.date, logs_dir: Path = LOGS_DIR) -> Path:
@@ -59,6 +62,42 @@ def append_event(
         line += f",{detail}"
     with path.open("a", encoding="utf-8") as f:
         f.write(line + "\n")
+
+
+def read_recent_raw(
+    host_name: str,
+    *,
+    since: Optional[dt.datetime] = None,
+    now: Optional[dt.datetime] = None,
+    logs_dir: Path = LOGS_DIR,
+) -> List[RawPoint]:
+    """Reads raw ping rows for a host between `since` and `now` (default: the last hour).
+
+    May span two per-day files when the window crosses midnight, since each
+    raw log file covers exactly one day.
+    """
+    now = now or dt.datetime.now()
+    since = since or (now - dt.timedelta(hours=1))
+
+    records: List[RawPoint] = []
+    host_dir = logs_dir / host_name
+    if not host_dir.exists():
+        return records
+
+    date = since.date()
+    while date <= now.date():
+        path = host_dir / f"{date.isoformat()}.csv"
+        if path.exists():
+            with path.open("r", newline="", encoding="utf-8") as f:
+                for row in csv.DictReader(f):
+                    timestamp = dt.datetime.fromisoformat(row["timestamp"])
+                    if since <= timestamp <= now:
+                        latency = float(row["latency_ms"]) if row["latency_ms"] else None
+                        records.append((timestamp, latency, row["status"]))
+        date += dt.timedelta(days=1)
+
+    records.sort(key=lambda record: record[0])
+    return records
 
 
 def prune_old_logs(

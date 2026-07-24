@@ -12,7 +12,7 @@ A lightweight, portable Windows desktop app (Python) that continuously monitors 
 
 ### 2. Main Window — Status View
 - **Table/list view**: one row per host — name, address, current latency, status (up/down/warning), consecutive misses, packet loss %.
-- Selecting a host (or an inline sparkline per row) shows a **latency history graph** built from logged data.
+- Clicking a host row shows its **latency history graph** below the table, built from logged data (last hour by default) — a plain Canvas line chart, not an embedded charting library, to keep the bundle small. Timeouts render as a red tick at the bottom axis; a dashed line marks the host's latency warning threshold.
 - Row color coding reflects state: OK / latency-warning / down.
 
 ### 3. Settings Page
@@ -62,7 +62,6 @@ On threshold breach (latency or missed-ping):
 
 ## Open Items to Decide During Build
 - Exact default values for global thresholds and retention period.
-- Graph library choice for the latency sparkline/history view (e.g. lightweight canvas-based rendering vs. a charting dependency) — affects bundle size.
 - Whether "Pause/Resume monitoring" is needed globally, per-host, or both.
 - Icon/branding assets for the tray icon and app window.
 

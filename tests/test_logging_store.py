@@ -34,6 +34,41 @@ def test_append_event_writes_status_first_combined_line(tmp_path: Path):
     assert line == "DOWN,2026-07-24T10:00:00,router1,timeout"
 
 
+def test_read_recent_raw_filters_by_window_and_parses_types(tmp_path: Path):
+    logging_store.append_raw_ping("router1", "OK", 12.3, when=dt.datetime(2026, 7, 24, 9, 0), logs_dir=tmp_path)
+    logging_store.append_raw_ping("router1", "OK", 15.0, when=dt.datetime(2026, 7, 24, 9, 30), logs_dir=tmp_path)
+    logging_store.append_raw_ping("router1", "DOWN", None, when=dt.datetime(2026, 7, 24, 9, 45), logs_dir=tmp_path)
+
+    points = logging_store.read_recent_raw(
+        "router1",
+        since=dt.datetime(2026, 7, 24, 9, 15),
+        now=dt.datetime(2026, 7, 24, 10, 0),
+        logs_dir=tmp_path,
+    )
+
+    assert [p[1] for p in points] == [15.0, None]
+    assert [p[2] for p in points] == ["OK", "DOWN"]
+    assert all(isinstance(p[0], dt.datetime) for p in points)
+
+
+def test_read_recent_raw_spans_midnight_across_two_files(tmp_path: Path):
+    logging_store.append_raw_ping("router1", "OK", 1.0, when=dt.datetime(2026, 7, 23, 23, 50), logs_dir=tmp_path)
+    logging_store.append_raw_ping("router1", "OK", 2.0, when=dt.datetime(2026, 7, 24, 0, 10), logs_dir=tmp_path)
+
+    points = logging_store.read_recent_raw(
+        "router1",
+        since=dt.datetime(2026, 7, 23, 23, 0),
+        now=dt.datetime(2026, 7, 24, 1, 0),
+        logs_dir=tmp_path,
+    )
+
+    assert [p[1] for p in points] == [1.0, 2.0]
+
+
+def test_read_recent_raw_returns_empty_for_unknown_host(tmp_path: Path):
+    assert logging_store.read_recent_raw("nope", logs_dir=tmp_path) == []
+
+
 def test_prune_old_logs_deletes_only_files_past_retention(tmp_path: Path):
     logging_store.append_raw_ping("router1", "OK", 1.0, when=dt.datetime(2026, 6, 1), logs_dir=tmp_path)
     logging_store.append_raw_ping("router1", "OK", 1.0, when=dt.datetime(2026, 7, 20), logs_dir=tmp_path)

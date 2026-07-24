@@ -58,7 +58,14 @@ def main() -> None:
     def open_settings() -> None:
         SettingsWindow(app, config, on_save=apply_new_config)
 
-    app = PingWatchApp(config.hosts, on_open_settings=open_settings)
+    def get_history(host_name: str):
+        host = next((h for h in config.hosts if h.name == host_name), None)
+        if host is None:
+            return [], None
+        warning_ms = host.latency_warning_ms or config.settings.default_latency_warning_ms
+        return logging_store.read_recent_raw(host_name), warning_ms
+
+    app = PingWatchApp(config.hosts, on_open_settings=open_settings, history_provider=get_history)
 
     def on_show() -> None:
         app.deiconify()
