@@ -244,21 +244,34 @@ class SystemMonApp(ctk.CTk):
         row = self._rows.get(host_name)
         if not row:
             return
-        row["status_value"] = status
         row["last_detail"] = detail
-        color = _STATUS_COLORS.get(status, "#999999")
-        row["status"].configure(text=self._fit_text(status, 1), text_color=color)
-        self._style_row(host_name)
+        self._paint_status(host_name, status)
         if host_name == self._selected_host:
             self._update_detail_label(host_name)
 
-    def update_host_metrics(self, host_name: str, latency_ms: Optional[float], loss_pct: float) -> None:
+    def update_host_metrics(
+        self, host_name: str, latency_ms: Optional[float], loss_pct: float, status: str
+    ) -> None:
         """Called via `after(0, ...)` on every ping (not just status transitions)."""
         row = self._rows.get(host_name)
         if not row:
             return
         row["latency"].configure(text="timeout" if latency_ms is None else f"{latency_ms:.0f} ms")
         row["loss"].configure(text=f"{loss_pct:.0f}%")
+        # Keeps the status label truthful even when nothing transitions (e.g.
+        # a host that's healthy from its very first ping never fires
+        # on_transition, since that path is reserved for notification-worthy
+        # changes and would otherwise leave the placeholder "..." forever).
+        self._paint_status(host_name, status)
+
+    def _paint_status(self, host_name: str, status: str) -> None:
+        row = self._rows.get(host_name)
+        if not row:
+            return
+        row["status_value"] = status
+        color = _STATUS_COLORS.get(status, "#999999")
+        row["status"].configure(text=self._fit_text(status, 1), text_color=color)
+        self._style_row(host_name)
 
     def _refresh_graph(self) -> None:
         if not self._selected_host or not self._history_provider:

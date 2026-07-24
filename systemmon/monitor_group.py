@@ -7,7 +7,7 @@ from .models import Host
 from .monitor import STATUS_DOWN, STATUS_WARN, HostMonitor
 
 TransitionCallback = Callable[[Host, str, str], None]
-TickCallback = Callable[[Host, Optional[float], float], None]
+TickCallback = Callable[[Host, Optional[float], float, str], None]
 
 
 class MonitorGroup:

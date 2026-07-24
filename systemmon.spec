@@ -15,6 +15,7 @@ be built by running this same command on Windows (or a Windows CI runner).
 """
 
 import os
+import sys
 
 import customtkinter
 
@@ -80,3 +81,14 @@ coll = COLLECT(
     upx_exclude=[],
     name="SystemMon",
 )
+
+if sys.platform == "darwin":
+    # Without this, macOS Finder has no way to tell the raw Mach-O binary
+    # apart from a shell command, so double-clicking (or `open`) runs it
+    # inside Terminal instead of launching it as a windowed app.
+    app = BUNDLE(
+        coll,
+        name="SystemMon.app",
+        icon=None,
+        bundle_identifier="com.systemmon.app",
+    )

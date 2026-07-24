@@ -8,6 +8,7 @@ import time
 from typing import Optional
 
 _IS_WINDOWS = platform.system() == "Windows"
+_IS_MACOS = platform.system() == "Darwin"
 
 
 def ping_icmp(address: str, timeout_ms: int = 1000) -> Optional[float]:
@@ -17,9 +18,10 @@ def ping_icmp(address: str, timeout_ms: int = 1000) -> Optional[float]:
     """
     if _IS_WINDOWS:
         cmd = ["ping", "-n", "1", "-w", str(timeout_ms), address]
+    elif _IS_MACOS:
+        # macOS's -W is in milliseconds, unlike Linux's (which is whole seconds).
+        cmd = ["ping", "-c", "1", "-W", str(timeout_ms), address]
     else:
-        # macOS/Linux ping take -W in whole seconds (Linux) or ms (macOS uses ms too,
-        # but a 1s floor keeps this simple and good enough for dev-time use).
         cmd = ["ping", "-c", "1", "-W", str(max(1, timeout_ms // 1000)), address]
 
     extra_kwargs = {}

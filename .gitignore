@@ -224,3 +224,6 @@ __marimo__/
 # SystemMon runtime data (generated at runtime, not source)
 config.json
 logs/
+
+# macOS
+.DS_Store

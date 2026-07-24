@@ -30,8 +30,8 @@ def main() -> None:
         if status in (STATUS_DOWN, STATUS_WARN, STATUS_RECOVERED):
             tray.notify(f"{host.name}: {status}", detail)
 
-    def on_tick(host: Host, latency_ms: Optional[float], loss_pct: float) -> None:
-        app.after(0, app.update_host_metrics, host.name, latency_ms, loss_pct)
+    def on_tick(host: Host, latency_ms: Optional[float], loss_pct: float, status: str) -> None:
+        app.after(0, app.update_host_metrics, host.name, latency_ms, loss_pct, status)
 
     monitors = MonitorGroup(on_transition=on_transition, on_tick=on_tick)
 
