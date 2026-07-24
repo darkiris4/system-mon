@@ -5,6 +5,9 @@ on:
     branches: [main]
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   build:
     runs-on: windows-latest
@@ -26,3 +29,21 @@ jobs:
         with:
           name: SystemMon-windows
           path: dist/SystemMon
+
+      - name: Zip build output
+        run: Compress-Archive -Path dist/SystemMon/* -DestinationPath SystemMon-windows.zip
+
+      # Workflow artifacts (above) require a logged-in GitHub session to
+      # download, even on a public repo. Release assets don't, so this
+      # publishes/replaces a rolling "latest build" release on every push,
+      # giving a stable, truly public download link.
+      - name: Publish rolling "latest build" release
+        shell: bash
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release delete windows-latest --yes --cleanup-tag || true
+          gh release create windows-latest SystemMon-windows.zip \
+            --title "Latest Windows build" \
+            --notes "Automatically built from commit ${{ github.sha }}. Not a versioned release - replaced on every push to main." \
+            --prerelease
