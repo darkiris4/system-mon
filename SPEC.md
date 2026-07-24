@@ -63,7 +63,7 @@ On threshold breach (latency or missed-ping):
 - **Notifications**: Windows toast via a lightweight tray/notification library compatible with the packaged exe.
 
 ## Open Items to Decide During Build
-- Icon/branding assets for the tray icon and app window.
+- Icon/branding assets for the tray icon and app window. Scaffolded but not enabled: a placeholder mark exists at `assets/icon.png` / `assets/icon.ico`, with loader functions in `systemmon/branding.py` (`set_window_icon`, `load_tray_icon_image`) — neither is currently called from `main.py`/`app.py`/`tray.py`. Wiring in the tray version also needs a design for how live status color (green/amber/red) is still conveyed once the icon is a fixed brand mark instead of a plain colored dot.
 
 ## Out of Scope (v1)
 - Remote/multi-machine monitoring or centralized server.
