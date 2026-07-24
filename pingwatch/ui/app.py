@@ -18,7 +18,7 @@ _STATUS_COLORS = {
 _SELECTED_ROW_COLOR = "#2b2b40"
 _UNSELECTED_ROW_COLOR = "transparent"
 
-HistoryProvider = Callable[[str], Tuple[List[RawPoint], Optional[float]]]
+HistoryProvider = Callable[[str, int], Tuple[List[RawPoint], Optional[float], Optional[float]]]
 
 
 class PingWatchApp(ctk.CTk):
@@ -57,8 +57,7 @@ class PingWatchApp(ctk.CTk):
         self._table = ctk.CTkScrollableFrame(self, height=180)
         self._table.pack(fill="x", padx=8, pady=8)
 
-        self._graph = LatencyGraph(self)
-        self._graph.pack(fill="both", expand=True, padx=8, pady=(0, 8))
+        self._graph = LatencyGraph(self, on_time_scale_change=self._refresh_graph)
 
         self.set_hosts(hosts)
 
@@ -75,6 +74,7 @@ class PingWatchApp(ctk.CTk):
         if self._selected_host not in self._rows:
             self._selected_host = None
             self._graph.clear()
+        self._update_graph_visibility()
 
     def _add_row(self, host: Host) -> None:
         row_index = len(self._rows)
@@ -112,7 +112,15 @@ class PingWatchApp(ctk.CTk):
         self._selected_host = host_name
         if host_name in self._rows:
             self._rows[host_name]["frame"].configure(fg_color=_SELECTED_ROW_COLOR)
+        self._update_graph_visibility()
         self._refresh_graph()
+
+    def _update_graph_visibility(self) -> None:
+        if self._selected_host:
+            if not self._graph.winfo_ismapped():
+                self._graph.pack(fill="both", expand=True, padx=8, pady=(0, 8))
+        else:
+            self._graph.pack_forget()
 
     def update_host_status(self, host_name: str, status: str, detail: str) -> None:
         """Called via `after(0, ...)` from the main thread only — Tk isn't thread-safe."""
@@ -126,8 +134,10 @@ class PingWatchApp(ctk.CTk):
     def _refresh_graph(self) -> None:
         if not self._selected_host or not self._history_provider:
             return
-        points, warning_ms = self._history_provider(self._selected_host)
-        self._graph.show(self._selected_host, points, warning_ms)
+        points, warning_ms, loss_pct_threshold = self._history_provider(
+            self._selected_host, self._graph.time_scale_seconds
+        )
+        self._graph.show(self._selected_host, points, warning_ms, loss_pct_threshold)
 
     def _periodic_refresh(self) -> None:
         self._refresh_graph()

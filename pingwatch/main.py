@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import datetime as dt
+
 from . import autostart, logging_store
 from .config import AppConfig, load_config, save_config
 from .models import Host
@@ -58,12 +60,15 @@ def main() -> None:
     def open_settings() -> None:
         SettingsWindow(app, config, on_save=apply_new_config)
 
-    def get_history(host_name: str):
+    def get_history(host_name: str, window_seconds: int):
         host = next((h for h in config.hosts if h.name == host_name), None)
         if host is None:
-            return [], None
+            return [], None, None
         warning_ms = host.latency_warning_ms or config.settings.default_latency_warning_ms
-        return logging_store.read_recent_raw(host_name), warning_ms
+        loss_pct_threshold = host.rolling_loss_pct or config.settings.default_rolling_loss_pct
+        since = dt.datetime.now() - dt.timedelta(seconds=window_seconds)
+        points = logging_store.read_recent_raw(host_name, since=since)
+        return points, warning_ms, loss_pct_threshold
 
     app = PingWatchApp(config.hosts, on_open_settings=open_settings, history_provider=get_history)
 
