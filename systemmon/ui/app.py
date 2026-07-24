@@ -21,7 +21,7 @@ _UNSELECTED_ROW_COLOR = "transparent"
 HistoryProvider = Callable[[str, int], Tuple[List[RawPoint], Optional[float], Optional[float]]]
 
 
-class PingWatchApp(ctk.CTk):
+class SystemMonApp(ctk.CTk):
     """Main window: host table on top, selected host's latency graph below.
 
     Selecting a row (click anywhere on it) loads that host's recent raw
@@ -36,7 +36,7 @@ class PingWatchApp(ctk.CTk):
         history_provider: Optional[HistoryProvider] = None,
     ):
         super().__init__()
-        self.title("PingWatch")
+        self.title("SystemMon")
         self.geometry("780x640")
 
         self._rows: dict[str, dict] = {}

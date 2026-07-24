@@ -3,7 +3,7 @@ from __future__ import annotations
 import platform
 import sys
 
-_APP_NAME = "PingWatch"
+_APP_NAME = "SystemMon"
 _RUN_KEY = r"Software\Microsoft\Windows\CurrentVersion\Run"
 
 
@@ -19,7 +19,7 @@ def _executable_command() -> str:
 
 
 def set_autostart(enabled: bool) -> None:
-    """Registers/unregisters PingWatch in the per-user registry Run key.
+    """Registers/unregisters SystemMon in the per-user registry Run key.
 
     A registry value (rather than a Startup folder shortcut) keeps this a
     one-line write/delete with no extra dependency, matching the "no registry

@@ -39,9 +39,9 @@ class TrayController:
         self._on_quit = on_quit
         self._paused = False
         self._icon = pystray.Icon(
-            "pingwatch",
+            "systemmon",
             _make_icon_image(_COLORS["ok"]),
-            "PingWatch",
+            "SystemMon",
             menu=pystray.Menu(
                 pystray.MenuItem("Show window", self._show),
                 pystray.MenuItem("Pause monitoring", self._toggle_pause, checked=lambda item: self._paused),

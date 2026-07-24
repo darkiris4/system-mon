@@ -219,6 +219,6 @@ __marimo__/
 # Streamlit
 .streamlit/secrets.toml
 
-# PingWatch runtime data (generated at runtime, not source)
+# SystemMon runtime data (generated at runtime, not source)
 config.json
 logs/

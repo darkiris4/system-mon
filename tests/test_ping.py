@@ -1,7 +1,7 @@
 import subprocess
 from unittest.mock import patch
 
-from pingwatch.ping import ping_icmp, tcp_check
+from systemmon.ping import ping_icmp, tcp_check
 
 
 def _fake_run(stdout: str, returncode: int = 0):

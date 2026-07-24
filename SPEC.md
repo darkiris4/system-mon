@@ -1,4 +1,4 @@
-# PingWatch — Product Spec
+# SystemMon — Product Spec
 
 ## Overview
 A lightweight, portable Windows desktop app (Python) that continuously monitors the reachability and latency of user-configured hosts via ping, alerting when configurable thresholds are breached, and logging history for later review.

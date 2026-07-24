@@ -1,7 +1,7 @@
 from pathlib import Path
 
-from pingwatch.config import AppConfig, load_config, save_config
-from pingwatch.models import GlobalSettings, Host
+from systemmon.config import AppConfig, load_config, save_config
+from systemmon.models import GlobalSettings, Host
 
 
 def test_round_trip_save_and_load(tmp_path: Path):

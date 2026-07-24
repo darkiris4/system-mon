@@ -7,7 +7,7 @@ from .config import AppConfig, load_config, save_config
 from .models import Host
 from .monitor import STATUS_DOWN, STATUS_RECOVERED, STATUS_WARN, HostMonitor
 from .tray import TrayController
-from .ui.app import PingWatchApp
+from .ui.app import SystemMonApp
 from .ui.settings_page import SettingsWindow
 
 
@@ -70,7 +70,7 @@ def main() -> None:
         points = logging_store.read_recent_raw(host_name, since=since)
         return points, warning_ms, loss_pct_threshold
 
-    app = PingWatchApp(config.hosts, on_open_settings=open_settings, history_provider=get_history)
+    app = SystemMonApp(config.hosts, on_open_settings=open_settings, history_provider=get_history)
 
     def on_show() -> None:
         app.deiconify()

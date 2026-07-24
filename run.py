@@ -1,4 +1,4 @@
-from pingwatch.main import main
+from systemmon.main import main
 
 if __name__ == "__main__":
     main()

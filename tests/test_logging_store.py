@@ -2,7 +2,7 @@ import csv
 import datetime as dt
 from pathlib import Path
 
-from pingwatch import logging_store
+from systemmon import logging_store
 
 
 def test_append_raw_ping_writes_header_then_status_first_rows(tmp_path: Path):
