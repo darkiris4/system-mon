@@ -1,0 +1,51 @@
+name: Build macOS app
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Build with PyInstaller
+        run: pyinstaller systemmon.spec
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: SystemMon-macos
+          path: dist/SystemMon.app
+
+      - name: Zip build output
+        # zip -y preserves symlinks instead of following them, which .app
+        # bundles rely on (e.g. Versions/Current inside embedded frameworks).
+        run: cd dist && zip -r -y ../SystemMon-macos.zip SystemMon.app
+
+      # Workflow artifacts (above) require a logged-in GitHub session to
+      # download, even on a public repo. Release assets don't, so this
+      # publishes/replaces a rolling "latest build" release on every push,
+      # giving a stable, truly public download link.
+      - name: Publish rolling "latest build" release
+        shell: bash
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release delete macos-latest --yes --cleanup-tag || true
+          gh release create macos-latest SystemMon-macos.zip \
+            --title "Latest macOS build" \
+            --notes "Automatically built from commit ${{ github.sha }}. Not a versioned release - replaced on every push to main. Unsigned/not notarized: after unzipping, right-click SystemMon.app and choose Open (or run 'xattr -dr com.apple.quarantine SystemMon.app') to get past Gatekeeper." \
+            --prerelease
