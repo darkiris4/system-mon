@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import tkinter as tk
 import tkinter.font as tkfont
+from tkinter import messagebox
 from typing import Callable, Iterable, List, Optional, Tuple
 
 import customtkinter as ctk
@@ -8,6 +10,7 @@ import customtkinter as ctk
 from .. import __version__
 from ..logging_store import RawPoint
 from ..models import Host
+from ..paths import app_dir
 from .graph import LatencyGraph
 
 _STATUS_COLORS = {
@@ -77,11 +80,13 @@ class SystemMonApp(ctk.CTk):
     ):
         super().__init__()
         self.title(f"SystemMon v{__version__}")
+        self._build_menu_bar(on_open_settings)
 
         self._rows: dict[str, dict] = {}
         self._history_provider = history_provider
         self._selected_host: Optional[str] = None
         self._on_toggle_pause = on_toggle_pause
+        self._paused = False
         # Match CTkLabel's actual default font (not plain tkinter's, which
         # resolves to a much smaller size) so truncation measures correctly.
         _default_font = ctk.CTkFont()
@@ -134,6 +139,45 @@ class SystemMonApp(ctk.CTk):
         if self._history_provider:
             self.after(2000, self._periodic_refresh)
 
+    def _build_menu_bar(self, on_open_settings: Callable[[], None]) -> None:
+        menubar = tk.Menu(self)
+        self.configure(menu=menubar)
+
+        settings_menu = tk.Menu(menubar, tearoff=False)
+        settings_menu.add_command(label="Settings...", command=on_open_settings)
+        menubar.add_cascade(label="Settings", menu=settings_menu)
+
+        help_menu = tk.Menu(menubar, tearoff=False)
+        help_menu.add_command(label="User Guide", command=self._show_user_guide)
+        help_menu.add_command(label="About SystemMon", command=self._show_about)
+        menubar.add_cascade(label="Help", menu=help_menu)
+
+    def _show_about(self) -> None:
+        messagebox.showinfo(
+            "About SystemMon",
+            f"SystemMon v{__version__}\n\n"
+            "A lightweight, portable app that keeps an eye on the reachability "
+            "and latency of hosts you care about.",
+        )
+
+    def _show_user_guide(self) -> None:
+        logs_dir = app_dir() / "logs"
+        messagebox.showinfo(
+            "SystemMon User Guide",
+            "SystemMon monitors the reachability and latency of hosts you "
+            "configure, via ICMP ping or a TCP port check, each on its own "
+            "interval.\n\n"
+            "Features:\n"
+            "- Compact status list: name, status, live latency, rolling packet-loss %\n"
+            "- Click a host to see its latency/loss history graph; click it again to collapse\n"
+            "- Configurable latency, miss-count, and packet-loss thresholds, globally or per host\n"
+            "- Tray icon reflects overall status; notifications on state changes\n"
+            "- Pause/Resume monitoring from here or the tray\n\n"
+            "Logs:\n"
+            f"- Per-host raw ping logs: {logs_dir}\n"
+            f"- Combined events log (status changes, config edits, pause/resume): {logs_dir / 'events.log'}",
+        )
+
     def _handle_toggle_pause(self) -> None:
         # on_toggle_pause is responsible for pushing the resulting label text
         # back via set_paused_label — it's the same callback the tray uses,
@@ -143,6 +187,15 @@ class SystemMonApp(ctk.CTk):
     def set_paused_label(self, paused: bool) -> None:
         """Keeps the button in sync even when toggled from the tray menu instead."""
         self._pause_button.configure(text="Resume" if paused else "Pause")
+
+    def set_monitoring_paused(self, paused: bool) -> None:
+        """Overlays "Paused" on every row's Status column, without touching the
+        underlying status_value — ticks stop while paused, so there's nothing
+        else to repaint rows from until resume, when this restores the real
+        per-host status immediately rather than waiting for the next tick."""
+        self._paused = paused
+        for host_name, row in self._rows.items():
+            self._paint_status(host_name, row["status_value"])
 
     def set_hosts(self, hosts: Iterable[Host]) -> None:
         """Rebuilds the table from scratch — used on startup and after Settings is saved."""
@@ -207,13 +260,15 @@ class SystemMonApp(ctk.CTk):
         row["frame"].configure(fg_color=fg, border_color=_SELECTED_BORDER_COLOR if is_selected else fg)
 
     def select_host(self, host_name: str) -> None:
+        """Selecting the already-selected row collapses the detail view instead."""
+        new_selection: Optional[str] = None if host_name == self._selected_host else host_name
         previous = self._selected_host
-        self._selected_host = host_name
+        self._selected_host = new_selection
         if previous and previous in self._rows:
             self._style_row(previous)
-        if host_name in self._rows:
-            self._style_row(host_name)
-        self._update_detail_label(host_name)
+        if new_selection and new_selection in self._rows:
+            self._style_row(new_selection)
+        self._update_detail_label(new_selection)
         self._update_graph_visibility()
         self._refresh_graph()
 
@@ -269,8 +324,11 @@ class SystemMonApp(ctk.CTk):
         if not row:
             return
         row["status_value"] = status
-        color = _STATUS_COLORS.get(status, "#999999")
-        row["status"].configure(text=self._fit_text(status, 1), text_color=color)
+        if self._paused:
+            row["status"].configure(text=self._fit_text("Paused", 1), text_color="#999999")
+        else:
+            color = _STATUS_COLORS.get(status, "#999999")
+            row["status"].configure(text=self._fit_text(status, 1), text_color=color)
         self._style_row(host_name)
 
     def _refresh_graph(self) -> None:

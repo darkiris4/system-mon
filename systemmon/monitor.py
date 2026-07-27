@@ -16,6 +16,11 @@ STATUS_WARN = "WARN"
 STATUS_DOWN = "DOWN"
 STATUS_RECOVERED = "RECOVERED"
 
+# User-driven, not a ping result — pausing/resuming monitoring itself, logged
+# once per click rather than per host.
+STATUS_PAUSED = "PAUSED"
+STATUS_RESUMED = "RESUMED"
+
 
 @dataclass
 class HostState:

@@ -4,7 +4,7 @@ import datetime as dt
 from typing import Optional
 
 from . import autostart, logging_store
-from .config import AppConfig, load_config, save_config
+from .config import AppConfig, diff_events, load_config, save_config
 from .models import Host
 from .monitor import STATUS_DOWN, STATUS_RECOVERED, STATUS_WARN
 from .monitor_group import MonitorGroup
@@ -37,6 +37,8 @@ def main() -> None:
 
     def apply_new_config(new_config: AppConfig) -> None:
         nonlocal config
+        for status, host_name, detail in diff_events(config, new_config):
+            logging_store.append_event(host_name, status, detail)
         config = new_config
         save_config(config)
         logging_store.prune_old_logs(config.settings.retention_days)
@@ -62,6 +64,7 @@ def main() -> None:
         paused = monitors.toggle_pause()
         tray.set_paused(paused)
         app.set_paused_label(paused)
+        app.set_monitoring_paused(paused)
         return paused
 
     app = SystemMonApp(

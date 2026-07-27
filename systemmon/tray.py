@@ -9,6 +9,7 @@ _COLORS: dict[str, Tuple[int, int, int]] = {
     "ok": (46, 160, 67),
     "warn": (219, 154, 4),
     "down": (218, 54, 51),
+    "paused": (128, 128, 128),
 }
 
 
@@ -38,6 +39,7 @@ class TrayController:
         self._on_toggle_pause = on_toggle_pause
         self._on_quit = on_quit
         self._paused = False
+        self._last_status = "ok"
         self._icon = pystray.Icon(
             "systemmon",
             _make_icon_image(_COLORS["ok"]),
@@ -53,11 +55,17 @@ class TrayController:
         self._icon.run_detached()
 
     def set_status(self, status: str) -> None:
-        self._icon.icon = _make_icon_image(_COLORS.get(status.lower(), _COLORS["ok"]))
+        self._last_status = status.lower()
+        # Ticks stop while paused, so this shouldn't normally fire then — but
+        # guard anyway rather than let a stale status clobber the gray icon.
+        if not self._paused:
+            self._icon.icon = _make_icon_image(_COLORS.get(self._last_status, _COLORS["ok"]))
 
     def set_paused(self, paused: bool) -> None:
-        """Mirrors the real pause state (owned by MonitorGroup) into the checkbox."""
+        """Mirrors the real pause state (owned by MonitorGroup) into the checkbox and icon."""
         self._paused = paused
+        color = _COLORS["paused"] if paused else _COLORS.get(self._last_status, _COLORS["ok"])
+        self._icon.icon = _make_icon_image(color)
 
     def notify(self, title: str, message: str) -> None:
         self._icon.notify(message, title)

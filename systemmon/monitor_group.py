@@ -2,9 +2,10 @@ from __future__ import annotations
 
 from typing import Callable, Dict, Optional
 
+from . import logging_store
 from .config import AppConfig
 from .models import Host
-from .monitor import STATUS_DOWN, STATUS_WARN, HostMonitor
+from .monitor import STATUS_DOWN, STATUS_PAUSED, STATUS_RESUMED, STATUS_WARN, HostMonitor
 
 TransitionCallback = Callable[[Host, str, str], None]
 TickCallback = Callable[[Host, Optional[float], float, str], None]
@@ -27,12 +28,23 @@ class MonitorGroup:
         self.paused = False
 
     def rebuild(self, config: AppConfig) -> None:
+        # Carry forward each host's HostState (last_status, consecutive_misses,
+        # rolling results) by name across the rebuild. Without this, every
+        # Settings save — even one editing an unrelated host, or just a
+        # global default — reset every host back to a fresh "OK" baseline,
+        # silently masking any host that was actually still DOWN/WARN and
+        # swallowing the RECOVERED transition for any host that had just
+        # come back up.
+        previous_states = {name: monitor.state for name, monitor in self._monitors.items()}
         for monitor in self._monitors.values():
             monitor.stop()
-        self._monitors = {
-            host.name: HostMonitor(host, config.settings, self._on_transition, on_tick=self._on_tick)
-            for host in config.hosts
-        }
+        new_monitors: Dict[str, HostMonitor] = {}
+        for host in config.hosts:
+            monitor = HostMonitor(host, config.settings, self._on_transition, on_tick=self._on_tick)
+            if host.name in previous_states:
+                monitor.state = previous_states[host.name]
+            new_monitors[host.name] = monitor
+        self._monitors = new_monitors
         for monitor in self._monitors.values():
             if self.paused:
                 monitor.pause()
@@ -42,6 +54,7 @@ class MonitorGroup:
         self.paused = not self.paused
         for monitor in self._monitors.values():
             monitor.pause() if self.paused else monitor.resume()
+        logging_store.append_event("", STATUS_PAUSED if self.paused else STATUS_RESUMED)
         return self.paused
 
     def stop_all(self) -> None:

@@ -2,7 +2,7 @@ from unittest.mock import patch
 
 from systemmon.config import AppConfig
 from systemmon.models import GlobalSettings, Host
-from systemmon.monitor import STATUS_DOWN, STATUS_OK, STATUS_WARN
+from systemmon.monitor import STATUS_DOWN, STATUS_OK, STATUS_WARN, HostMonitor
 from systemmon.monitor_group import MonitorGroup
 
 
@@ -39,6 +39,21 @@ def test_toggle_pause_pauses_and_resumes_all_monitors():
             group.stop_all()
 
 
+def test_toggle_pause_logs_one_event_per_click():
+    group = MonitorGroup(on_transition=lambda *a: None, on_tick=lambda *a: None)
+    with patch.object(HostMonitor, "start", lambda self: None), patch(
+        "systemmon.monitor_group.logging_store.append_event"
+    ) as append_event:
+        group.rebuild(_config("a"))
+
+        group.toggle_pause()
+        append_event.assert_called_once_with("", "PAUSED")
+
+        append_event.reset_mock()
+        group.toggle_pause()
+        append_event.assert_called_once_with("", "RESUMED")
+
+
 def test_rebuild_after_pause_keeps_new_monitors_paused():
     """The bug being fixed: recreating monitors (e.g. after a Settings save)
     must respect the current pause state instead of silently resuming."""
@@ -53,6 +68,42 @@ def test_rebuild_after_pause_keeps_new_monitors_paused():
             assert all(m.is_paused() for m in group._monitors.values())
         finally:
             group.stop_all()
+
+
+def test_rebuild_preserves_state_for_unchanged_hosts():
+    """The bug being fixed: a Settings save used to recreate every HostMonitor
+    from scratch, resetting last_status/consecutive_misses/rolling results to
+    a fresh OK baseline — silently masking a host that was actually still
+    DOWN, and swallowing the RECOVERED transition for one that had just come
+    back up, on every save regardless of which host was actually edited.
+
+    HostMonitor.start is stubbed out so this exercises rebuild()'s state
+    hand-off in isolation, without a live ping thread racing the assertions.
+    """
+    group = MonitorGroup(on_transition=lambda *a: None, on_tick=lambda *a: None)
+    with patch.object(HostMonitor, "start", lambda self: None):
+        group.rebuild(_config("a", "b"))
+        group._monitors["a"].state.last_status = STATUS_DOWN
+        group._monitors["a"].state.consecutive_misses = 5
+
+        # Simulate an unrelated Settings save (e.g. editing host "b", or a
+        # global default) that still includes host "a" unchanged.
+        group.rebuild(_config("a", "b"))
+
+        assert group._monitors["a"].state.last_status == STATUS_DOWN
+        assert group._monitors["a"].state.consecutive_misses == 5
+
+
+def test_rebuild_gives_a_new_host_fresh_state():
+    group = MonitorGroup(on_transition=lambda *a: None, on_tick=lambda *a: None)
+    with patch.object(HostMonitor, "start", lambda self: None):
+        group.rebuild(_config("a"))
+        group._monitors["a"].state.last_status = STATUS_DOWN
+
+        group.rebuild(_config("a", "b"))
+
+        assert group._monitors["b"].state.last_status == STATUS_OK
+        assert group._monitors["b"].state.consecutive_misses == 0
 
 
 def test_worst_status_prioritizes_down_over_warn_over_ok():
