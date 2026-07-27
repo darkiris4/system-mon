@@ -46,7 +46,11 @@ class TrayController:
             "SystemMon",
             menu=pystray.Menu(
                 pystray.MenuItem("Show window", self._show),
-                pystray.MenuItem("Pause monitoring", self._toggle_pause, checked=lambda item: self._paused),
+                pystray.MenuItem(
+                    lambda item: "Resume monitoring" if self._paused else "Pause monitoring",
+                    self._toggle_pause,
+                    checked=lambda item: self._paused,
+                ),
                 pystray.MenuItem("Quit", self._quit),
             ),
         )

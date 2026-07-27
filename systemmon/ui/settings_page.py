@@ -5,6 +5,7 @@ from typing import Callable, List
 
 import customtkinter as ctk
 
+from ..branding import set_window_icon
 from ..config import AppConfig
 from ..models import GlobalSettings, Host
 from .host_dialog import HostDialog
@@ -21,6 +22,7 @@ class SettingsWindow(ctk.CTkToplevel):
     def __init__(self, parent, config: AppConfig, on_save: Callable[[AppConfig], None]):
         super().__init__(parent)
         self.title("Settings")
+        set_window_icon(self)
         self.geometry("580x560")
         self.transient(parent)
         self.grab_set()

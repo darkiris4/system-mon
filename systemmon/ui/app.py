@@ -8,6 +8,7 @@ from typing import Callable, Iterable, List, Optional, Tuple
 import customtkinter as ctk
 
 from .. import __version__
+from ..branding import set_window_icon
 from ..logging_store import RawPoint
 from ..models import Host
 from ..paths import app_dir
@@ -80,6 +81,7 @@ class SystemMonApp(ctk.CTk):
     ):
         super().__init__()
         self.title(f"SystemMon v{__version__}")
+        set_window_icon(self)
         self._build_menu_bar(on_open_settings)
 
         self._rows: dict[str, dict] = {}
@@ -98,7 +100,6 @@ class SystemMonApp(ctk.CTk):
             toolbar, text="Resume" if initial_paused else "Pause", width=70, command=self._handle_toggle_pause
         )
         self._pause_button.pack(side="left")
-        ctk.CTkButton(toolbar, text="Settings", width=70, command=on_open_settings).pack(side="right")
 
         header = ctk.CTkFrame(self, corner_radius=0)
         header.pack(fill="x", padx=8, pady=(8, 0))

@@ -4,6 +4,7 @@ from typing import Callable, Optional
 
 import customtkinter as ctk
 
+from ..branding import set_window_icon
 from ..models import Host
 
 
@@ -13,6 +14,7 @@ class HostDialog(ctk.CTkToplevel):
     def __init__(self, parent, on_save: Callable[[Host], None], host: Optional[Host] = None):
         super().__init__(parent)
         self.title("Edit Host" if host else "Add Host")
+        set_window_icon(self)
         self.geometry("380x480")
         self.transient(parent)
         self.grab_set()
