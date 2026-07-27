@@ -1,28 +1,27 @@
 from __future__ import annotations
 
+import platform
 import tkinter
 from pathlib import Path
 
 from PIL import Image
 
-# Scaffolding for the "icon/branding" open item in SPEC.md — a placeholder
-# mark exists here, but nothing in main.py/app.py/tray.py calls into this
-# module yet. The tray icon still draws a live status-colored dot instead of
-# a static brand mark, and the window uses Tk's default icon. Wire these in
-# once real branding assets replace the placeholder.
 ASSETS_DIR = Path(__file__).resolve().parent.parent / "assets"
 ICON_ICO_PATH = ASSETS_DIR / "icon.ico"
 ICON_PNG_PATH = ASSETS_DIR / "icon.png"
+
+_IS_WINDOWS = platform.system() == "Windows"
 
 
 def set_window_icon(window: tkinter.Wm) -> None:
     """Applies the branded icon to a window's title bar/taskbar entry.
 
-    `.ico` via `iconbitmap` is a Windows-only Tk feature (the shipped
-    target); on other platforms this silently no-ops instead of raising,
-    since dev/testing happens on non-Windows machines too.
+    `.ico` via `iconbitmap` only renders correctly on Windows — Tk doesn't
+    actually understand the format elsewhere. On macOS it doesn't raise (so
+    a try/except can't gate this): it silently applies the file anyway and
+    renders it wrong, so the platform must be checked explicitly instead.
     """
-    if not ICON_ICO_PATH.exists():
+    if not _IS_WINDOWS or not ICON_ICO_PATH.exists():
         return
     try:
         window.iconbitmap(str(ICON_ICO_PATH))
