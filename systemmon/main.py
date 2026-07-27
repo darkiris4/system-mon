@@ -61,10 +61,17 @@ def main() -> None:
         return points, warning_ms, loss_pct_threshold
 
     def on_toggle_pause() -> bool:
+        # May be called from the tray's own thread (menu click) or the Tk
+        # main thread (Pause button) — Tkinter calls must land on the main
+        # thread, so route them through app.after regardless of caller.
         paused = monitors.toggle_pause()
-        tray.set_paused(paused)
-        app.set_paused_label(paused)
-        app.set_monitoring_paused(paused)
+
+        def _update_ui() -> None:
+            tray.set_paused(paused)
+            app.set_paused_label(paused)
+            app.set_monitoring_paused(paused)
+
+        app.after(0, _update_ui)
         return paused
 
     app = SystemMonApp(
@@ -72,13 +79,20 @@ def main() -> None:
     )
 
     def on_show() -> None:
-        app.deiconify()
-        app.lift()
+        # Called from the tray's own thread — must not touch Tkinter directly.
+        def _show() -> None:
+            app.deiconify()
+            app.lift()
+
+        app.after(0, _show)
 
     def on_quit() -> None:
+        # Called from the tray's own thread. stop_all/tray.stop don't touch
+        # Tkinter so they're safe here; app.destroy() must run on the Tk
+        # main thread or it can hang the whole process (seen on Windows).
         monitors.stop_all()
         tray.stop()
-        app.destroy()
+        app.after(0, app.destroy)
 
     tray = TrayController(on_show, on_toggle_pause, on_quit)
     app.protocol("WM_DELETE_WINDOW", app.withdraw)
