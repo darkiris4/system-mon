@@ -11,8 +11,8 @@ from .. import __version__
 from ..branding import set_window_icon
 from ..logging_store import RawPoint
 from ..models import Host
-from ..paths import app_dir
 from .graph import LatencyGraph
+from .user_guide import UserGuideWindow
 
 _STATUS_COLORS = {
     "OK": "#2ea043",
@@ -158,26 +158,12 @@ class SystemMonApp(ctk.CTk):
             "About SystemMon",
             f"SystemMon v{__version__}\n\n"
             "A lightweight, portable app that keeps an eye on the reachability "
-            "and latency of hosts you care about.",
+            "and latency of hosts you care about.\n\n"
+            "Author: Mike \"Cpup\" Hamilton",
         )
 
     def _show_user_guide(self) -> None:
-        logs_dir = app_dir() / "logs"
-        messagebox.showinfo(
-            "SystemMon User Guide",
-            "SystemMon monitors the reachability and latency of hosts you "
-            "configure, via ICMP ping or a TCP port check, each on its own "
-            "interval.\n\n"
-            "Features:\n"
-            "- Compact status list: name, status, live latency, rolling packet-loss %\n"
-            "- Click a host to see its latency/loss history graph; click it again to collapse\n"
-            "- Configurable latency, miss-count, and packet-loss thresholds, globally or per host\n"
-            "- Tray icon reflects overall status; notifications on state changes\n"
-            "- Pause/Resume monitoring from here or the tray\n\n"
-            "Logs:\n"
-            f"- Per-host raw ping logs: {logs_dir}\n"
-            f"- Combined events log (status changes, config edits, pause/resume): {logs_dir / 'events.log'}",
-        )
+        UserGuideWindow(self)
 
     def _handle_toggle_pause(self) -> None:
         # on_toggle_pause is responsible for pushing the resulting label text
